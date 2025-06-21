@@ -1,13 +1,13 @@
+import gens.{gen, new}
 import gleeunit
 
 pub fn main() -> Nil {
   gleeunit.main()
 }
 
-// gleeunit test functions end in `_test`
-pub fn hello_world_test() {
-  let name = "Gen"
-  let greeting = "Hello, " <> name <> "!"
-
-  assert greeting == "Hello, Gen!"
+// Basic test for the default generator and the gen function
+pub fn gen_test() {
+  assert gen(new(), 0) == []
+  assert gen(new(), 1) == [0]
+  assert new() |> gen(5) == [0, 1, 2, 3, 4]
 }
