@@ -39,11 +39,36 @@ fn gen_acc(
 /// // -> [0, 1, 2, 3, 4]
 /// ```
 pub fn gen(ga: Generator(a), n: Int) -> List(a) {
-  let Generator(step, amap, afilt) = ga
-  gen_acc(step, 0, n, amap, afilt, [])
+  case ga {
+    Generator(step, amap, afilt) -> gen_acc(step, 0, n, amap, afilt, [])
+  }
 }
 
-pub fn main() -> Nil {
-  echo new() |> gen(5)
-  Nil
+/// Maps each element of the generated list
+/// ```gleam
+/// new()
+/// |> map(fn(x) { x + 3 })
+/// |> map(int.to_string)
+/// |> gen(5)
+/// // -> ["3", "4", "5", "6", "7"]
+/// ```
+pub fn map(ga: Generator(a), f: fn(a) -> b) -> Generator(b) {
+  case ga {
+    Generator(step, amap, afilt) -> Generator(step, fn(n) { f(amap(n)) }, afilt)
+  }
+}
+
+/// Filters elements from the generated list
+/// ```gleam
+/// new()
+/// |> filter(fn(x) { x % 2 == 0 })
+/// |> filter(fn(x) { x != 4 })
+/// |> gen(5)
+/// // -> [0, 2, 6, 8, 10]
+/// ```
+pub fn filter(ga: Generator(a), f: fn(a) -> Bool) -> Generator(a) {
+  case ga {
+    Generator(step, amap, afilt) ->
+      Generator(step, amap, fn(n) { afilt(n) && f(amap(n)) })
+  }
 }
