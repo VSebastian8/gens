@@ -3,7 +3,7 @@
 [![Package Version](https://img.shields.io/hexpm/v/gens)](https://hex.pm/packages/gens)
 [![Hex Docs](https://img.shields.io/badge/hex-docs-ffaff3)](https://hexdocs.pm/gens/)
 
-Gleam generators for infinite lazy lists!
+Gleam generators for lazy infinite lists!
 
 ```sh
 gleam add gens@1
