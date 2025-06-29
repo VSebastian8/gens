@@ -2,10 +2,6 @@ import gleam/int
 import gleam/list
 import gleam/option.{type Option, None, Some}
 
-pub opaque type LazyList(a) {
-  LazyList(Int, fn(Int) -> a, fn(Int) -> Bool)
-}
-
 pub type Generator(a, s) {
   Generator(state: s, next: fn(s) -> Option(#(a, s)))
 }
@@ -14,16 +10,138 @@ pub type Generator(a, s) {
 /// ```gleam
 /// let counter =
 ///   Generator(state: 0, next: fn(c) { Some(#(c, c + 1)) })
-/// case get(counter) {
+/// case get(counter).0 {
 ///   None -> Nil
-///   Some(#(x, _)) -> println(x) // -> 0
+///   Some(x) -> echo x // -> 0
 /// }
 /// ```
-pub fn get(g: Generator(a, s)) -> Option(#(a, Generator(a, s))) {
+pub fn get(g: Generator(a, s)) -> #(Option(a), Generator(a, s)) {
   case g.next(g.state) {
-    None -> None
-    Some(#(x, s)) -> Some(#(x, Generator(state: s, next: g.next)))
+    None -> #(None, g)
+    Some(#(x, s)) -> #(Some(x), Generator(state: s, next: g.next))
   }
+}
+
+/// Tail recursive function for gen 
+fn gen_acc(
+  g: Generator(a, s),
+  n: Int,
+  ls: List(a),
+) -> #(List(a), Generator(a, s)) {
+  case n > 0 {
+    False -> #(list.reverse(ls), g)
+    True ->
+      case get(g) {
+        #(None, _) -> #(list.reverse(ls), g)
+        #(Some(x), g2) -> gen_acc(g2, n - 1, [x, ..ls])
+      }
+  }
+}
+
+/// Generates at most n elements and returns the updated gen
+/// ```gleam
+/// let counter =
+///   Generator(state: 0, next: fn(c) { Some(#(c, c + 1)) })
+/// let #(nums, _) = gen(counter, 5)
+/// echo nums // -> [0, 1, 2, 3, 4]
+/// ```
+pub fn gen(g: Generator(a, s), n: Int) -> #(List(a), Generator(a, s)) {
+  gen_acc(g, n, [])
+}
+
+/// Combines two generators into one, advancing them separately
+/// ```gleam
+/// let two_powers =
+///   Generator(state: 1, next: fn(p) { Some(#(p, p * 2)) })
+/// let bellow_three =
+///   Generator(state: 0, next: fn(n) { Some(#(n < 3, n + 1)) })
+///
+/// let z = combine(two_powers, bellow_three)
+/// let #(res, _) = gen(z, 5)
+/// echo res
+/// // -> [#(1, True), #(2, True), #(4, True), #(8, False), #(16, False)]
+/// ```
+pub fn combine(
+  g1: Generator(a, s1),
+  g2: Generator(b, s2),
+) -> Generator(#(a, b), #(s1, s2)) {
+  Generator(state: #(g1.state, g2.state), next: fn(state) {
+    let #(state1, state2) = state
+    let res1 = g1.next(state1)
+    let res2 = g2.next(state2)
+    case res1, res2 {
+      Some(#(x, state3)), Some(#(y, state4)) ->
+        Some(#(#(x, y), #(state3, state4)))
+      _, _ -> None
+    }
+  })
+}
+
+/// Generates the lists elements
+/// ```gleam
+/// let gen_fruit = from_list(["apple", "banana", "orange"])
+/// let #(fruit1, gen_fruit2) = get(gen_fruit)
+/// echo fruit1
+/// // -> Some("apple")
+/// let #(fruit2, gen_fruit3) = get(gen_fruit2)
+/// echo fruit2
+/// // -> Some("banana")
+/// let #(fruit3, gen_fruit4) = get(gen_fruit3)
+/// echo fruit3
+/// // -> Some("orange")
+/// let #(fruit4, _) = get(gen_fruit4)
+/// echo fruit4
+/// // -> None
+/// ```
+pub fn from_list(l: List(a)) -> Generator(a, List(a)) {
+  Generator(state: l, next: fn(ls) {
+    case ls {
+      [] -> None
+      [x, ..rest] -> Some(#(x, rest))
+    }
+  })
+}
+
+/// Generates the lists elements on repeat
+/// ```gleam
+/// let gen_fruit = list_repeat(["apple", "banana", "orange"])
+/// let #(fruits, _) = gen(gen_fruit, 5)
+/// echo fruits
+/// // -> ["apple", "banana", "orange", "apple", "banana"]
+/// ```
+pub fn list_repeat(l: List(a)) -> Generator(a, #(List(a), List(a))) {
+  Generator(state: #(l, l), next: fn(list_pair) {
+    let #(current, original) = list_pair
+    case current {
+      [] -> None
+      [x, ..rest] ->
+        case rest {
+          [] -> Some(#(x, #(original, original)))
+          _ -> Some(#(x, #(rest, original)))
+        }
+    }
+  })
+}
+
+/// Generates elements from the lazy list
+/// ```gleam
+/// let infinite_list = new() |> drop(3) |> map(fn(x) { x * 10 })
+/// let ten_gen = from_lazy_list(infinite_list)
+/// let #(res, _) = gen(ten_gen, 10)
+/// echo res
+/// // -> [30, 40, 50, 60, 70, 80, 90, 100, 110, 120]
+/// ```
+pub fn from_lazy_list(l: LazyList(a)) -> Generator(a, LazyList(a)) {
+  Generator(state: l, next: fn(ls) {
+    case take(ls, 1) {
+      [] -> None
+      [x, ..] -> Some(#(x, ls |> drop(1)))
+    }
+  })
+}
+
+pub opaque type LazyList(a) {
+  LazyList(Int, fn(Int) -> a, fn(Int) -> Bool)
 }
 
 /// Default LazyList for the list of `natural numbers` [0..]

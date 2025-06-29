@@ -74,8 +74,62 @@ pub fn get_test() {
   let counter =
     gens.Generator(state: 0, next: fn(c) { option.Some(#(c, c + 1)) })
 
-  case gens.get(counter) {
+  case gens.get(counter).0 {
     option.None -> Nil
-    option.Some(#(x, _)) -> should.equal(x, 0)
+    option.Some(x) -> should.equal(x, 0)
   }
+}
+
+// Testing the gen function for generator
+pub fn gen_test() {
+  let counter =
+    gens.Generator(state: 0, next: fn(c) { option.Some(#(c, c + 1)) })
+
+  let #(nums, _) = gens.gen(counter, 5)
+  nums |> should.equal([0, 1, 2, 3, 4])
+}
+
+// Testing the combine function of 2 gens
+pub fn combine_test() {
+  let two_powers =
+    gens.Generator(state: 1, next: fn(p) { option.Some(#(p, p * 2)) })
+  let bellow_three =
+    gens.Generator(state: 0, next: fn(n) { option.Some(#(n < 3, n + 1)) })
+
+  let z = gens.combine(two_powers, bellow_three)
+  let #(res, _) = gens.gen(z, 5)
+  should.equal(res, [
+    #(1, True),
+    #(2, True),
+    #(4, True),
+    #(8, False),
+    #(16, False),
+  ])
+}
+
+// Testing the from_list function for generator
+pub fn from_list_test() {
+  let gen_fruit = gens.from_list(["apple", "banana", "orange"])
+  let #(fruit1, gen_fruit2) = gens.get(gen_fruit)
+  should.equal(fruit1, option.Some("apple"))
+  let #(fruit2, gen_fruit3) = gens.get(gen_fruit2)
+  should.equal(fruit2, option.Some("banana"))
+  let #(fruit3, gen_fruit4) = gens.get(gen_fruit3)
+  should.equal(fruit3, option.Some("orange"))
+  let #(fruit4, _) = gens.get(gen_fruit4)
+  should.equal(fruit4, option.None)
+}
+
+// Testing the list_repeat function for generator
+pub fn list_repeat_test() {
+  let gen_fruit = gens.list_repeat(["apple", "banana", "orange"])
+  let #(fruits, _) = gens.gen(gen_fruit, 5)
+  should.equal(fruits, ["apple", "banana", "orange", "apple", "banana"])
+}
+
+pub fn from_lazy_list_test() {
+  let infinite_list = new() |> drop(3) |> map(fn(x) { x * 10 })
+  let ten_gen = gens.from_lazy_list(infinite_list)
+  let #(res, _) = gens.gen(ten_gen, 10)
+  echo res
 }
