@@ -1,8 +1,29 @@
 import gleam/int
 import gleam/list
+import gleam/option.{type Option, None, Some}
 
 pub opaque type LazyList(a) {
   LazyList(Int, fn(Int) -> a, fn(Int) -> Bool)
+}
+
+pub type Generator(a, s) {
+  Generator(state: s, next: fn(s) -> Option(#(a, s)))
+}
+
+/// Returns the next element of a generator and the updated gen
+/// ```gleam
+/// let counter =
+///   Generator(state: 0, next: fn(c) { Some(#(c, c + 1)) })
+/// case get(counter) {
+///   None -> Nil
+///   Some(#(x, _)) -> println(x) // -> 0
+/// }
+/// ```
+pub fn get(g: Generator(a, s)) -> Option(#(a, Generator(a, s))) {
+  case g.next(g.state) {
+    None -> None
+    Some(#(x, s)) -> Some(#(x, Generator(state: s, next: g.next)))
+  }
 }
 
 /// Default LazyList for the list of `natural numbers` [0..]

@@ -1,6 +1,8 @@
 import gens.{drop, filter, list_zip, map, new, take, zip}
 import gleam/int
+import gleam/option
 import gleeunit
+import gleeunit/should
 
 pub fn main() -> Nil {
   gleeunit.main()
@@ -53,7 +55,7 @@ pub fn drop_test() {
     == [8, 10, 12, 14, 16]
 }
 
-// Testing the zip function for 2 takes
+// Testing the zip function for 2 lazy lists
 pub fn zip_test() {
   let g1 = new() |> map(fn(x) { x + 2 })
   let g2 = new() |> filter(int.is_even)
@@ -65,4 +67,15 @@ pub fn zip_test() {
 // Testing the list_zip function
 pub fn list_zip_test() {
   assert ["a", "b", "c"] |> list_zip(new()) == [#("a", 0), #("b", 1), #("c", 2)]
+}
+
+// Testing the get function for generator
+pub fn get_test() {
+  let counter =
+    gens.Generator(state: 0, next: fn(c) { option.Some(#(c, c + 1)) })
+
+  case gens.get(counter) {
+    option.None -> Nil
+    option.Some(#(x, _)) -> should.equal(x, 0)
+  }
 }
