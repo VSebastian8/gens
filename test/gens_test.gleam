@@ -85,8 +85,9 @@ pub fn gen_test() {
   let counter =
     gens.Generator(state: 0, next: fn(c) { option.Some(#(c, c + 1)) })
 
-  let #(nums, _) = gens.gen(counter, 5)
+  let #(nums, counter2) = gens.gen(counter, 5)
   nums |> should.equal([0, 1, 2, 3, 4])
+  counter2.state |> should.equal(5)
 }
 
 // Testing the combine function of 2 gens
@@ -127,9 +128,19 @@ pub fn list_repeat_test() {
   should.equal(fruits, ["apple", "banana", "orange", "apple", "banana"])
 }
 
+// Testing the generator constructed from a lazy list
 pub fn from_lazy_list_test() {
   let infinite_list = new() |> drop(3) |> map(fn(x) { x * 10 })
   let ten_gen = gens.from_lazy_list(infinite_list)
   let #(res, _) = gens.gen(ten_gen, 10)
-  echo res
+  res
+  |> should.equal([30, 40, 50, 60, 70, 80, 90, 100, 110, 120])
+}
+
+// Testing the merge generators function
+pub fn merge_test() {
+  let counter1 = gens.Generator(0, fn(c) { option.Some(#(c, c + 1)) })
+  let counter2 = gens.Generator(0, fn(c) { option.Some(#(c, c + 2)) })
+  let merged = gens.merge(counter1, counter2, int.compare)
+  merged |> gens.gen(8) |> echo
 }

@@ -1,6 +1,7 @@
 import gleam/int
 import gleam/list
 import gleam/option.{type Option, None, Some}
+import gleam/order.{type Order}
 
 pub type Generator(a, s) {
   Generator(state: s, next: fn(s) -> Option(#(a, s)))
@@ -83,12 +84,18 @@ pub fn combine(
 /// let #(fruit1, gen_fruit2) = get(gen_fruit)
 /// echo fruit1
 /// // -> Some("apple")
+/// ```
+/// ```gleam
 /// let #(fruit2, gen_fruit3) = get(gen_fruit2)
 /// echo fruit2
 /// // -> Some("banana")
+/// ```
+/// ```gleam
 /// let #(fruit3, gen_fruit4) = get(gen_fruit3)
 /// echo fruit3
 /// // -> Some("orange")
+/// ```
+/// ```gleam
 /// let #(fruit4, _) = get(gen_fruit4)
 /// echo fruit4
 /// // -> None
@@ -136,6 +143,36 @@ pub fn from_lazy_list(l: LazyList(a)) -> Generator(a, LazyList(a)) {
     case take(ls, 1) {
       [] -> None
       [x, ..] -> Some(#(x, ls |> drop(1)))
+    }
+  })
+}
+
+/// Merges two `sorted` generators into one
+/// ```gleam
+/// let counter1 = Generator(0, fn(c) { Some(#(c, c + 1)) })
+/// let counter2 = Generator(0, fn(c) { Some(#(c, c + 2)) })
+/// let merged = merge(counter1, counter2, int.compare)
+/// merged 
+/// |> gen(8) 
+/// |> echo
+/// // -> #([0, 0, 1, 2, 2, 3, 4, 4], Generator(#(5, 6), fn() { ... }))
+/// ```
+pub fn merge(
+  g1: Generator(a, s1),
+  g2: Generator(a, s2),
+  comp: fn(a, a) -> Order,
+) -> Generator(a, #(s1, s2)) {
+  Generator(state: #(g1.state, g2.state), next: fn(s) {
+    let #(state1, state2) = s
+    case g1.next(state1), g2.next(state2) {
+      Some(#(x1, st1)), Some(#(x2, st2)) ->
+        case comp(x1, x2) {
+          order.Gt -> Some(#(x2, #(state1, st2)))
+          _ -> Some(#(x1, #(st1, state2)))
+        }
+      Some(#(x1, st1)), None -> Some(#(x1, #(st1, state2)))
+      None, Some(#(x2, st2)) -> Some(#(x2, #(state1, st2)))
+      None, None -> None
     }
   })
 }

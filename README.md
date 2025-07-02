@@ -6,7 +6,7 @@
 Gleam generators and lazy infinite lists!
 
 ```sh
-gleam add gens@1
+gleam add gens
 ```
 
 ### LazyList
@@ -25,4 +25,24 @@ pub fn main() -> Nil {
   // -> ["3", "5", "7", "9", "11"]
   Nil
 }
+```
+
+### Generator
+
+```gleam
+import gens
+import gleam/option
+
+pub fn main() -> Nil {
+  let counter =
+    gens.Generator(state: 0, next: fn(c) { option.Some(#(c, c + 1)) })
+
+  let #(nums, counter2) = gens.gen(counter, 5)
+  echo nums
+  // -> [0, 1, 2, 3, 4]
+  echo counter2.state
+  // -> 5
+  Nil
+}
+
 ```
