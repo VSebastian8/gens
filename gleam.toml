@@ -1,8 +1,8 @@
 name = "gens"
-version = "2.0.0"
+version = "2.1.0"
 
 authors = ["VSebastian8"]
-description = "Gleam generators for lazy infinite lists!"
+description = "Gleam generators and infinite lazy lists!"
 licences = ["Apache-2.0"]
 repository = { type = "github", user = "VSebastian8", repo = "gens" }
 

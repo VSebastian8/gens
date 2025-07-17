@@ -1,6 +1,7 @@
 import gens.{drop, filter, list_zip, map, new, take, zip}
 import gleam/int
 import gleam/option
+import gleam/pair
 import gleeunit
 import gleeunit/should
 
@@ -161,8 +162,38 @@ pub fn while_test() {
     })
   gens.while(gen_ten)
   |> should.equal([5, 7, 9])
-  // This function is the reverse of `from_list`
+  // This function is the inverse of `from_list`
   let gen_li = gens.from_list(["A", "B", "C"])
   gens.while(gen_li)
   |> should.equal(["A", "B", "C"])
+}
+
+// Testing the forever function
+pub fn forever_test() {
+  let gen_nat = gens.Generator(1, fn(c) { option.Some(#(c, c + 1)) })
+  let lazy_nat = gens.forever(gen_nat)
+  gens.take(lazy_nat, 5)
+  |> should.equal([1, 2, 3, 4, 5])
+  // This function is the inverse of `from_lazy_list`
+  let lazy_odds =
+    new()
+    |> filter(int.is_odd)
+    |> map(int.to_string)
+  let gen_odds = gens.from_lazy_list(lazy_odds)
+  let lazy_odds_2 = gens.forever(gen_odds)
+
+  gens.take(lazy_odds, 5)
+  |> should.equal(["1", "3", "5", "7", "9"])
+  gens.gen(gen_odds, 5)
+  |> pair.first
+  |> should.equal(["1", "3", "5", "7", "9"])
+  gens.take(lazy_odds_2, 5)
+  |> should.equal(["1", "3", "5", "7", "9"])
+}
+
+// Testing the infinite function
+pub fn infinite_test() {
+  let gen_nat = gens.infinite(1, fn(x) { #(x, x + 1) })
+  gens.gen(gen_nat, 5).0
+  |> should.equal([1, 2, 3, 4, 5])
 }

@@ -2,6 +2,8 @@ import gleam/int
 import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/order.{type Order}
+import gleam/pair
+import gleam/result
 
 pub type Generator(a, s) {
   Generator(state: s, next: fn(s) -> Option(#(a, s)))
@@ -12,7 +14,7 @@ pub type Generator(a, s) {
 /// let counter =
 ///   Generator(state: 0, next: fn(c) { Some(#(c, c + 1)) })
 /// case get(counter).0 {
-///   None -> Nil
+///   None -> echo "no more numbers"
 ///   Some(x) -> echo x // -> 0
 /// }
 /// ```
@@ -159,7 +161,9 @@ pub fn from_lazy_list(l: LazyList(a)) -> Generator(a, LazyList(a)) {
 ///   })
 /// echo while(gen_ten)
 /// // -> [5, 7, 9]
-/// // This function is the reverse of `from_list`
+/// ```
+/// This function is the in verse of `from_list`
+/// ```gleam
 /// let gen_li = from_list(["A", "B", "C"])
 /// echo while(gen_li)
 /// // -> ["A", "B", "C"]
@@ -169,6 +173,52 @@ pub fn while(g: Generator(a, s)) -> List(a) {
     #(None, _) -> []
     #(Some(x), g2) -> [x, ..while(g2)]
   }
+}
+
+/// Generates a lazy list from a generator with no end condition. \
+/// Since each element in the lazy list needs to be generated separately, this function can be very slow!!! (O(n^2))
+/// ```gleam
+/// let gen_nat = Generator(1, fn(c) { Some(#(c, c + 1)) })
+/// let lazy_nat = forever(gen_nat)
+/// echo take(lazy_nat, 5)
+/// // -> [1, 2, 3, 4, 5]
+/// ```
+/// This function is the inverse of `from_lazy_list`
+/// ```gleam
+/// let lazy_odds =
+///   new()
+///   |> filter(int.is_odd)
+///   |> map(int.to_string)
+/// let gen_odds = from_lazy_list(lazy_odds)
+/// let lazy_odds_2 = forever(gen_odds)
+/// 
+/// echo take(lazy_odds, 5)
+/// // -> ["1", "3", "5", "7", "9"]
+/// echo gen(gen_odds, 5) |> pair.first
+/// // -> ["1", "3", "5", "7", "9"]
+/// echo take(lazy_odds_2, 5)
+/// // -> ["1", "3", "5", "7", "9"]
+/// ```
+pub fn forever(g: Generator(a, s)) -> LazyList(a) {
+  new()
+  |> map(fn(n) { gen(g, n) |> pair.first |> list.last })
+  |> filter(result.is_ok)
+  |> map(fn(res) {
+    case res {
+      Ok(x) -> x
+      Error(_) -> panic
+    }
+  })
+}
+
+/// Creates a generator with no end condition.
+/// ```gleam
+/// let gen_nat = infinite(1, fn(x) { #(x, x + 1) })
+/// echo gen(gen_nat, 5).0
+/// // -> [1, 2, 3, 4, 5]
+/// ```
+pub fn infinite(state: s, next: fn(s) -> #(a, s)) -> Generator(a, s) {
+  Generator(state, fn(x) { Some(next(x)) })
 }
 
 /// Merges two `sorted` generators into one
@@ -252,7 +302,7 @@ pub fn take(ga: LazyList(a), n: Int) -> List(a) {
   }
 }
 
-/// **Maps** each element of the takeerated list
+/// **Maps** each element of the gerated list
 /// ```gleam
 /// new()
 /// |> map(fn(x) { x + 3 })
@@ -266,7 +316,7 @@ pub fn map(ga: LazyList(a), f: fn(a) -> b) -> LazyList(b) {
   }
 }
 
-/// **Filters** elements from the takeerated list
+/// **Filters** elements from the generated list
 /// ```gleam
 /// new()
 /// |> filter(fn(x) { x % 2 == 0 })
@@ -281,7 +331,7 @@ pub fn filter(ga: LazyList(a), f: fn(a) -> Bool) -> LazyList(a) {
   }
 }
 
-// `Tail recursive` function used for skipping takeerated elements
+// `Tail recursive` function used for skipping generated elements
 fn advance(index: Int, steps: Int, filt: fn(Int) -> Bool) -> Int {
   case steps >= 0 {
     False -> index - 1

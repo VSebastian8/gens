@@ -3,13 +3,15 @@
 [![Package Version](https://img.shields.io/hexpm/v/gens)](https://hex.pm/packages/gens)
 [![Hex Docs](https://img.shields.io/badge/hex-docs-ffaff3)](https://hexdocs.pm/gens/)
 
-Gleam generators and lazy infinite lists!
+Gleam generators and infinite lazy lists!
 
 ```sh
 gleam add gens
 ```
 
 ### LazyList
+
+They are infinite lists generated from a given formula. The `new` function returns the infinite list of natural numbers that can later be transformed with functions such as `map`, `filter`, or `drop`. Finally, to produce a concrete list from the formula, we call the `take` function.
 
 ```gleam
 import gleam/int
@@ -29,6 +31,8 @@ pub fn main() -> Nil {
 
 ### Generator
 
+Generators produce one or more elements at a time, updating an internal state. The update function can have an end condition, where the generated element will be `None`. This signals to the user that there are no more elements to be generated.
+
 ```gleam
 import gens
 import gleam/option
@@ -44,5 +48,4 @@ pub fn main() -> Nil {
   // -> 5
   Nil
 }
-
 ```
