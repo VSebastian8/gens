@@ -137,10 +137,32 @@ pub fn from_lazy_list_test() {
   |> should.equal([30, 40, 50, 60, 70, 80, 90, 100, 110, 120])
 }
 
+fn fst(t: #(a, b)) {
+  let #(x, _) = t
+  x
+}
+
 // Testing the merge generators function
 pub fn merge_test() {
   let counter1 = gens.Generator(0, fn(c) { option.Some(#(c, c + 1)) })
   let counter2 = gens.Generator(0, fn(c) { option.Some(#(c, c + 2)) })
   let merged = gens.merge(counter1, counter2, int.compare)
-  merged |> gens.gen(8) |> echo
+  merged |> gens.gen(8) |> fst |> should.equal([0, 0, 1, 2, 2, 3, 4, 4])
+}
+
+// Testing the while function
+pub fn while_test() {
+  let gen_ten =
+    gens.Generator(5, fn(x) {
+      case x < 10 {
+        True -> option.Some(#(x, x + 2))
+        False -> option.None
+      }
+    })
+  gens.while(gen_ten)
+  |> should.equal([5, 7, 9])
+  // This function is the reverse of `from_list`
+  let gen_li = gens.from_list(["A", "B", "C"])
+  gens.while(gen_li)
+  |> should.equal(["A", "B", "C"])
 }

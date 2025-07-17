@@ -147,6 +147,30 @@ pub fn from_lazy_list(l: LazyList(a)) -> Generator(a, LazyList(a)) {
   })
 }
 
+/// Generates a list of all the elements. \
+/// If the generator does not have a reachable end condition, then this function does not end!!!
+/// ```gleam
+/// let gen_ten =
+///   Generator(5, fn(x) {
+///     case x < 10 {
+///       True -> Some(#(x, x + 2))
+///       False -> None
+///     }
+///   })
+/// echo while(gen_ten)
+/// // -> [5, 7, 9]
+/// // This function is the reverse of `from_list`
+/// let gen_li = from_list(["A", "B", "C"])
+/// echo while(gen_li)
+/// // -> ["A", "B", "C"]
+/// ```
+pub fn while(g: Generator(a, s)) -> List(a) {
+  case get(g) {
+    #(None, _) -> []
+    #(Some(x), g2) -> [x, ..while(g2)]
+  }
+}
+
 /// Merges two `sorted` generators into one
 /// ```gleam
 /// let counter1 = Generator(0, fn(c) { Some(#(c, c + 1)) })
