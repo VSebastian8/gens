@@ -22,7 +22,7 @@ pub fn main() -> Nil {
   |> gens.map(fn(x) { x + 3 })
   |> gens.filter(fn(x) {x % 2 != 0 })
   |> gens.map(int.to_string)
-  |> take(5)
+  |> gens.take(5)
   |> echo
   // -> ["3", "5", "7", "9", "11"]
   Nil
@@ -48,4 +48,12 @@ pub fn main() -> Nil {
   // -> 5
   Nil
 }
+```
+
+### Monad Instances
+
+The monad instances of `LazyList` and `Generator` alow us to use them in `use expressions`.
+
+```gleam
+
 ```

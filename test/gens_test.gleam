@@ -197,3 +197,23 @@ pub fn infinite_test() {
   gens.gen(gen_nat, 5).0
   |> should.equal([1, 2, 3, 4, 5])
 }
+
+// Testing the LazyList Alternative instance
+pub fn lazy_alternative_test() {
+  let odd_pears =
+    new()
+    |> filter(int.is_odd)
+    |> map(fn(x) { int.to_string(x) <> " pears" })
+  let triple_kiwis =
+    new()
+    |> drop(3)
+    |> filter(fn(x) { x % 3 == 0 })
+    |> map(fn(x) { int.to_string(x) <> " kiwis" })
+  // Combining the two lists
+  let fruits = gens.lazy_list_alternative().or(odd_pears, triple_kiwis)
+  gens.take(fruits, 8)
+  |> should.equal([
+    "3 pears", "5 pears", "6 kiwis", "7 pears", "9 pears", "11 pears",
+    "12 kiwis", "13 pears",
+  ])
+}

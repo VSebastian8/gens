@@ -1,3 +1,4 @@
+import cat/alternative.{type Alternative, Alternative}
 import gleam/int
 import gleam/list
 import gleam/option.{type Option, None, Some}
@@ -252,7 +253,7 @@ pub fn merge(
 }
 
 pub opaque type LazyList(a) {
-  LazyList(Int, fn(Int) -> a, fn(Int) -> Bool)
+  LazyList(index: Int, map: fn(Int) -> a, filter: fn(Int) -> Bool)
 }
 
 /// Default LazyList for the list of `natural numbers` [0..]
@@ -396,4 +397,41 @@ pub fn zip(ga: LazyList(a), gb: LazyList(b)) -> LazyList(#(a, b)) {
 /// ```
 pub fn list_zip(la: List(a), gb: LazyList(b)) -> List(#(a, b)) {
   list.zip(la, take(gb, list.length(la)))
+}
+
+/// Phantom type for LazyList cat instances
+pub type LazyListF
+
+/// `Alternative` instance for `LazyList`
+/// ```gleam
+/// let odd_pears =
+///   new()
+///   |> filter(int.is_odd)
+///   |> map(fn(x) { int.to_string(x) <> " pears" })
+/// let triple_kiwis =
+///   new()
+///   |> drop(3)
+///   |> filter(fn(x) { x % 3 == 0 })
+///   |> map(fn(x) { int.to_string(x) <> " kiwis" })
+/// // Combining the two lists
+/// let fruits = lazy_list_alternative().or(odd_pears, triple_kiwis)
+/// take(fruits, 8)
+/// // -> ["3 pears", "5 pears", "6 kiwis", "7 pears", "9 pears", "11 pears", "12 kiwis", "13 pears"]
+/// ```
+pub fn lazy_list_alternative() -> Alternative(LazyListF, LazyList(a)) {
+  Alternative(
+    empty: LazyList(index: 0, map: fn(_) { panic }, filter: fn(_) { False }),
+    or: fn(l1, l2) {
+      LazyList(
+        index: int.max(l1.index, l2.index),
+        map: fn(n) {
+          case l1.filter(n) {
+            True -> l1.map(n)
+            False -> l2.map(n)
+          }
+        },
+        filter: fn(x) { l1.filter(x) || l2.filter(x) },
+      )
+    },
+  )
 }
