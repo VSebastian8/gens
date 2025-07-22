@@ -6,6 +6,8 @@ import gleam/order.{type Order}
 import gleam/pair
 import gleam/result
 
+//================== Generator ==================
+
 pub type Generator(a, s) {
   Generator(state: s, next: fn(s) -> Option(#(a, s)))
 }
@@ -251,6 +253,76 @@ pub fn merge(
     }
   })
 }
+
+/// Phantom type for Generator cat instances
+pub type GeneratorF
+
+// Tail recursive function for Generator's chain
+fn chain_tail_rec(
+  states: List(s),
+  nexts: List(fn(s) -> Option(#(a, s))),
+  acc: #(Option(a), List(s)),
+) -> #(Option(a), List(s)) {
+  case acc {
+    #(Some(x), state_list) ->
+      case states {
+        [st, ..rest_states] ->
+          chain_tail_rec(rest_states, [], #(Some(x), [st, ..state_list]))
+        [] -> #(Some(x), list.reverse(state_list))
+      }
+    #(None, state_list) ->
+      case states, nexts {
+        [st, ..rest_states], [nx, ..rest_nexts] ->
+          case nx(st) {
+            Some(#(x, new_st)) ->
+              chain_tail_rec(
+                rest_states,
+                [],
+                #(Some(x), [new_st, ..state_list]),
+              )
+            None ->
+              chain_tail_rec(
+                rest_states,
+                rest_nexts,
+                #(None, [st, ..state_list]),
+              )
+          }
+        _, _ -> #(None, list.reverse(state_list))
+      }
+  }
+}
+
+/// `Chains` a list of generators
+/// ```gleam
+/// let gen_three =
+///   Generator(1, fn(x) {
+///     case x <= 3 {
+///       True -> Some(#(x, x + 1))
+///       False -> None
+///     }
+///   })
+/// let gen_nat = infinite(1, fn(x) { #(x, x + 1) })
+/// // Once the first generator ends, the second one begins
+/// let gen_chain = chain([gen_three, gen_nat])
+/// gen_chain
+/// |> gen(8)
+/// |> pair.first
+/// // -> [1, 2, 3, 1, 2, 3, 4, 5]
+/// ```
+pub fn chain(generators: List(Generator(a, s))) -> Generator(a, List(s)) {
+  Generator(
+    state: generators |> list.map(fn(g) { g.state }),
+    next: fn(gen_states) {
+      let gen_nexts = generators |> list.map(fn(g) { g.next })
+      case chain_tail_rec(gen_states, gen_nexts, #(None, [])) {
+        #(None, _) -> None
+        #(Some(x), states) -> Some(#(x, states))
+      }
+    },
+  )
+}
+
+//================== Lazy List ==================
 
 pub opaque type LazyList(a) {
   LazyList(index: Int, map: fn(Int) -> a, filter: fn(Int) -> Bool)

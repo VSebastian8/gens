@@ -217,3 +217,21 @@ pub fn lazy_alternative_test() {
     "12 kiwis", "13 pears",
   ])
 }
+
+// Testing the chain function
+pub fn chain_test() {
+  let gen_three =
+    gens.Generator(1, fn(x) {
+      case x <= 3 {
+        True -> option.Some(#(x, x + 1))
+        False -> option.None
+      }
+    })
+  let gen_nat = gens.infinite(1, fn(x) { #(x, x + 1) })
+  // Once the first generator ends, the second one begins
+  let gen_chain = gens.chain([gen_three, gen_nat])
+  gen_chain
+  |> gens.gen(8)
+  |> pair.first
+  |> should.equal([1, 2, 3, 1, 2, 3, 4, 5])
+}
