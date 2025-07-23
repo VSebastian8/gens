@@ -55,7 +55,7 @@ pub fn take(ga: LazyList(a), n: Int) -> List(a) {
   }
 }
 
-/// **Maps** each element of the gerated list
+/// **Maps** each element of the generated list
 /// ```gleam
 /// new()
 /// |> map(fn(x) { x + 3 })

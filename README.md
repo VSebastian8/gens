@@ -55,5 +55,17 @@ pub fn main() -> Nil {
 Another way to represent `infinite lists`, using the previous value to generate the next one. This can be considered a sort of generator where the state is the last element.
 
 ```gleam
+import gens/stream.{type Stream, Stream, map, take}
 
+pub fn naturals() -> Stream(Int) {
+  Stream(head: fn() { 0 }, tail: fn() { map(naturals(), fn(x) { x + 1 }) })
+}
+
+pub fn main() -> Nil {
+  naturals()
+  |> take(5)
+  |> echo
+  // -> [0, 1, 2, 3, 4]
+  Nil
+}
 ```
