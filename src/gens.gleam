@@ -1,4 +1,5 @@
 import cat/alternative.{type Alternative, Alternative}
+import cat/monad.{type Monad, Monad}
 import gleam/int
 import gleam/list
 import gleam/option.{type Option, None, Some}
@@ -255,7 +256,7 @@ pub fn merge(
 }
 
 /// Phantom type for Generator cat instances
-pub type GeneratorF
+pub type GeneratorM(s)
 
 // Tail recursive function for Generator's chain
 fn chain_tail_rec(
@@ -318,6 +319,48 @@ pub fn chain(generators: List(Generator(a, s))) -> Generator(a, List(s)) {
         #(None, _) -> None
         #(Some(x), states) -> Some(#(x, states))
       }
+    },
+  )
+}
+
+/// `Monad` instance for `Generator` type
+/// ```gleam
+/// let plus_one = infinite(1, fn(x) { #(x, x + 1) })
+/// let plus_two = infinite(1, fn(x) { #(x, x + 2) })
+/// let g = {
+///   use x <- generator_monad().bind(plus_one)
+///   echo x // -> 1, 4, 7, 10, 13..
+///   use y <- generator_monad().map(plus_two)
+///   echo y // -> 2, 5, 8, 9, 12..
+///   x + y
+/// }
+/// g |> gen(5) |> pair.first |> echo
+/// // -> [3, 9, 15, 21, 27]
+/// ```
+pub fn generator_monad() -> Monad(
+  GeneratorM(s),
+  a,
+  b,
+  Generator(a, s),
+  Generator(b, s),
+) {
+  Monad(
+    return: fn(_) { panic },
+    map: fn(g: Generator(a, s), f: fn(a) -> b) {
+      Generator(state: g.state, next: fn(state) {
+        case g.next(state) {
+          None -> None
+          Some(#(x, new_state)) -> Some(#(f(x), new_state))
+        }
+      })
+    },
+    bind: fn(g: Generator(a, s), f: fn(a) -> Generator(b, s)) {
+      Generator(state: g.state, next: fn(state) {
+        case g.next(state) {
+          None -> None
+          Some(#(x, new_state)) -> f(x).next(new_state)
+        }
+      })
     },
   )
 }

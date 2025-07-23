@@ -1,4 +1,4 @@
-import gens.{drop, filter, list_zip, map, new, take, zip}
+import gens.{drop, filter, generator_monad, list_zip, map, new, take, zip}
 import gleam/int
 import gleam/option
 import gleam/pair
@@ -234,4 +234,57 @@ pub fn chain_test() {
   |> gens.gen(8)
   |> pair.first
   |> should.equal([1, 2, 3, 1, 2, 3, 4, 5])
+}
+
+// Testing the generator monad instance
+pub fn monad_test() {
+  let plus_one = gens.infinite(1, fn(x) { #(x, x + 1) })
+  let plus_two = gens.infinite(1, fn(x) { #(x, x + 2) })
+  let g = {
+    use x <- generator_monad().bind(plus_one)
+    use y <- generator_monad().map(plus_two)
+    x + y
+  }
+  g |> gens.gen(5) |> pair.first |> should.equal([3, 9, 15, 21, 27])
+}
+
+pub type Wallet {
+  Empty
+  Money(Int)
+  Full
+}
+
+pub fn wallet_test() {
+  let big_stock =
+    gens.Generator(Money(5), fn(w) {
+      case w {
+        Money(x) -> option.Some(#(x, Money(x * 2)))
+        _ -> option.None
+      }
+    })
+  let small_stock =
+    gens.Generator(Empty, fn(w) {
+      case w {
+        Money(x) -> option.Some(#(x + 2, Money(x - 6)))
+        _ -> option.None
+      }
+    })
+  let limit =
+    gens.Generator(Empty, fn(w) {
+      case w {
+        Money(x) ->
+          case x < 0 || x > 15 {
+            False -> option.Some(#(x, w))
+            True -> option.None
+          }
+        _ -> option.None
+      }
+    })
+  let wallet = {
+    use x <- generator_monad().bind(big_stock)
+    use y <- generator_monad().bind(small_stock)
+    use _ <- generator_monad().map(limit)
+    int.to_string(x) <> " -> " <> int.to_string(y)
+  }
+  wallet |> gens.while |> should.equal(["5 -> 12", "4 -> 10"])
 }
