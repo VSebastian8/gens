@@ -15,14 +15,14 @@ They are infinite lists generated from a given formula. The `new` function retur
 
 ```gleam
 import gleam/int
-import gens
+import gens/lazy,{new, map, filter, take}
 
 pub fn main() -> Nil {
-  gens.new()
-  |> gens.map(fn(x) { x + 3 })
-  |> gens.filter(fn(x) {x % 2 != 0 })
-  |> gens.map(int.to_string)
-  |> gens.take(5)
+  new()
+  |> map(fn(x) { x + 3 })
+  |> filter(fn(x) {x % 2 != 0 })
+  |> map(int.to_string)
+  |> take(5)
   |> echo
   // -> ["3", "5", "7", "9", "11"]
   Nil
@@ -50,9 +50,9 @@ pub fn main() -> Nil {
 }
 ```
 
-### Monad Instances
+### Strean
 
-The monad instances of `LazyList` and `Generator` alow us to use them in `use expressions`.
+Another way to represent `infinite lists`, using the previous value to generate the next one. This can be considered a sort of generator where the state is the last element.
 
 ```gleam
 
