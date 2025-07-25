@@ -13,7 +13,6 @@ pub fn main() -> Nil {
   gleeunit.main()
 }
 
-// Testing the get function for generator
 pub fn get_test() {
   let counter = Generator(state: 0, next: fn(c) { option.Some(#(c, c + 1)) })
 
@@ -23,7 +22,6 @@ pub fn get_test() {
   }
 }
 
-// Testing the gen function for generator
 pub fn gen_test() {
   let counter = Generator(state: 0, next: fn(c) { option.Some(#(c, c + 1)) })
 
@@ -32,7 +30,6 @@ pub fn gen_test() {
   counter2.state |> should.equal(5)
 }
 
-// Testing the combine function of 2 gens
 pub fn combine_test() {
   let two_powers = Generator(state: 1, next: fn(p) { option.Some(#(p, p * 2)) })
   let bellow_three =
@@ -49,7 +46,6 @@ pub fn combine_test() {
   ])
 }
 
-// Testing the from_list function for generator
 pub fn from_list_test() {
   let gen_fruit = from_list(["apple", "banana", "orange"])
   let #(fruit1, gen_fruit2) = get(gen_fruit)
@@ -62,14 +58,12 @@ pub fn from_list_test() {
   should.equal(fruit4, option.None)
 }
 
-// Testing the list_repeat function for generator
 pub fn list_repeat_test() {
   let gen_fruit = list_repeat(["apple", "banana", "orange"])
   let #(fruits, _) = gen(gen_fruit, 5)
   should.equal(fruits, ["apple", "banana", "orange", "apple", "banana"])
 }
 
-// Testing the generator constructed from a lazy list
 pub fn from_lazy_list_test() {
   let infinite_list = new() |> drop(3) |> map(fn(x) { x * 10 })
   let ten_gen = from_lazy_list(infinite_list)
@@ -83,7 +77,6 @@ fn fst(t: #(a, b)) {
   x
 }
 
-// Testing the merge generators function
 pub fn merge_test() {
   let counter1 = Generator(0, fn(c) { option.Some(#(c, c + 1)) })
   let counter2 = Generator(0, fn(c) { option.Some(#(c, c + 2)) })
@@ -91,7 +84,6 @@ pub fn merge_test() {
   merged |> gen(8) |> fst |> should.equal([0, 0, 1, 2, 2, 3, 4, 4])
 }
 
-// Testing the while function
 pub fn while_test() {
   let gen_ten =
     Generator(5, fn(x) {
@@ -108,7 +100,6 @@ pub fn while_test() {
   |> should.equal(["A", "B", "C"])
 }
 
-// Testing the forever function
 pub fn forever_test() {
   let gen_nat = Generator(1, fn(c) { option.Some(#(c, c + 1)) })
   let lazy_nat = forever(gen_nat)
@@ -131,14 +122,12 @@ pub fn forever_test() {
   |> should.equal(["1", "3", "5", "7", "9"])
 }
 
-// Testing the infinite function
 pub fn infinite_test() {
   let gen_nat = infinite(1, fn(x) { #(x, x + 1) })
   gen(gen_nat, 5).0
   |> should.equal([1, 2, 3, 4, 5])
 }
 
-// Testing the chain function
 pub fn chain_test() {
   let gen_three =
     Generator(1, fn(x) {
@@ -156,7 +145,6 @@ pub fn chain_test() {
   |> should.equal([1, 2, 3, 1, 2, 3, 4, 5])
 }
 
-// Testing the generator monad instance
 pub fn monad_test() {
   let plus_one = infinite(1, fn(x) { #(x, x + 1) })
   let plus_two = infinite(1, fn(x) { #(x, x + 2) })

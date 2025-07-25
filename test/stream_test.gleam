@@ -1,4 +1,7 @@
-import gens/stream.{type Stream, Stream, drop, filter, list_zip, map, take, zip}
+import gens/stream.{
+  type Stream, Stream, drop, filter, fold, list_zip, map, merge, scan, take,
+  while, zip,
+}
 import gleam/int
 import gleeunit/should
 
@@ -62,4 +65,35 @@ pub fn zip_test() {
 
   list_zip(["a", "b", "c"], naturals())
   |> should.equal([#("a", 0), #("b", 1), #("c", 2)])
+}
+
+pub fn while_test() {
+  naturals()
+  |> while(fn(x) { x < 5 })
+  |> should.equal([0, 1, 2, 3, 4])
+}
+
+pub fn dummy() -> Stream(Nil) {
+  Stream(head: fn() { Nil }, tail: dummy)
+}
+
+pub fn scan_test() {
+  let evens: Stream(Int) = scan(dummy(), 0, fn(_, acc) { acc + 2 })
+  evens
+  |> take(5)
+  |> should.equal([0, 2, 4, 6, 8])
+}
+
+pub fn merge_test() {
+  merge(naturals(), naturals() |> map(fn(x) { x * 2 }), int.compare)
+  |> take(8)
+  |> should.equal([0, 0, 1, 2, 2, 3, 4, 4])
+}
+
+pub fn fold_test() {
+  // If at least one element is True, then the fold ends
+  // If all elements in the Stream are False, the fold runs infinitely
+  let stream_or =
+    fold(naturals() |> map(fn(x) { x == 10 }), fn(x, next) { x || next() })
+    |> should.equal(True)
 }

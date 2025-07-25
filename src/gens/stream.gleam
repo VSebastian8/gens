@@ -1,6 +1,7 @@
 ////================== Stream ==================
 
 import gleam/list
+import gleam/order.{type Order, Gt}
 
 pub type Stream(a) {
   Stream(head: fn() -> a, tail: fn() -> Stream(a))
@@ -130,4 +131,74 @@ pub fn list_zip(list: List(a), stream: Stream(b)) -> List(#(a, b)) {
     [] -> []
     [x, ..xs] -> [#(x, stream.head()), ..list_zip(xs, stream.tail())]
   }
+}
+
+/// **Takes** elements from the Stream until the condition is false
+/// ```gleam
+///   naturals()
+/// |> while(fn(x) { x < 5 })
+/// // -> [0, 1, 2, 3, 4]
+/// ```
+pub fn while(stream: Stream(a), condition: fn(a) -> Bool) -> List(a) {
+  case condition(stream.head()) {
+    False -> []
+    True -> [stream.head(), ..while(stream.tail(), condition)]
+  }
+}
+
+/// **Scans** the Stream and reconstructs it using an accumulator
+/// ```gleam
+/// pub fn dummy() -> Stream(Nil) {
+///   Stream(head: fn() { Nil }, tail: dummy)
+/// }
+/// ```
+/// ```gleam
+/// let evens: Stream(Int) = scan(dummy(), 0, fn(_, acc) { acc + 2 })
+/// evens
+/// |> take(5)
+/// // -> [0, 2, 4, 6, 8]
+/// ```
+pub fn scan(stream: Stream(a), acc: b, f: fn(a, b) -> b) -> Stream(b) {
+  Stream(head: fn() { acc }, tail: fn() {
+    scan(stream.tail(), f(stream.head(), acc), f)
+  })
+}
+
+/// **Merges** two sorted Streams
+/// ```gleam
+/// merge(naturals(), naturals() |> map(fn(x) { x * 2 }), int.compare)
+/// |> take(8)
+/// // -> [0, 0, 1, 2, 2, 3, 4, 4]
+/// ```
+pub fn merge(
+  stream1: Stream(a),
+  stream2: Stream(a),
+  compare: fn(a, a) -> Order,
+) -> Stream(a) {
+  Stream(
+    head: fn() {
+      case compare(stream1.head(), stream2.head()) {
+        Gt -> stream2.head()
+        _ -> stream1.head()
+      }
+    },
+    tail: fn() {
+      case compare(stream1.head(), stream2.head()) {
+        Gt -> merge(stream1, stream2.tail(), compare)
+        _ -> merge(stream1.tail(), stream2, compare)
+      }
+    },
+  )
+}
+
+/// **Folds** the Stream into a single value using an accumulator
+/// ```gleam
+/// // If at least one element is True, then the fold ends
+/// // If all elements in the Stream are False, the fold runs infinitely
+/// let stream_or =
+///   fold(naturals() |> map(fn(x) { x == 10 }), fn(x, next) { x || next() })
+///   // -> True
+/// ```
+pub fn fold(stream: Stream(a), f: fn(a, fn() -> b) -> b) -> b {
+  f(stream.head(), fn() { fold(stream.tail(), f) })
 }
