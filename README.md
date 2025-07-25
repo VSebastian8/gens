@@ -3,30 +3,10 @@
 [![Package Version](https://img.shields.io/hexpm/v/gens)](https://hex.pm/packages/gens)
 [![Hex Docs](https://img.shields.io/badge/hex-docs-ffaff3)](https://hexdocs.pm/gens/)
 
-Gleam generators and infinite lazy lists!
+Gleam generator, lazy lists, and infinite streams!
 
 ```sh
 gleam add gens
-```
-
-### LazyList
-
-They are infinite lists generated from a given formula. The `new` function returns the infinite list of natural numbers that can later be transformed with functions such as `map`, `filter`, or `drop`. Finally, to produce a concrete list from the formula, we call the `take` function.
-
-```gleam
-import gleam/int
-import gens/lazy,{new, map, filter, take}
-
-pub fn main() -> Nil {
-  new()
-  |> map(fn(x) { x + 3 })
-  |> filter(fn(x) {x % 2 != 0 })
-  |> map(int.to_string)
-  |> take(5)
-  |> echo
-  // -> ["3", "5", "7", "9", "11"]
-  Nil
-}
 ```
 
 ### Generator
@@ -50,12 +30,33 @@ pub fn main() -> Nil {
 }
 ```
 
-### Strean
+### LazyList
 
-Another way to represent `infinite lists`, using the previous value to generate the next one. This can be considered a sort of generator where the state is the last element.
+They are infinite lists generated from a given formula. The `new` function returns the infinite list of natural numbers that can later be transformed with functions such as `map`, `filter`, or `drop`. Finally, to produce a concrete list from the formula, we call the `take` function.
+
+```gleam
+import gleam/int
+import gens/lazy,{new, map, filter, take}
+
+pub fn main() -> Nil {
+  new()
+  |> map(fn(x) { x + 3 })
+  |> filter(fn(x) {x % 2 != 0 })
+  |> map(int.to_string)
+  |> take(5)
+  |> echo
+  // -> ["3", "5", "7", "9", "11"]
+  Nil
+}
+```
+
+### Stream
+
+Streams are another way to represent `infinite lists`, using the previous value to generate the next one. This can be considered a sort of generator where the state is the last element.
 
 ```gleam
 import gens/stream.{type Stream, Stream, map, take}
+import gleam/int
 
 pub fn naturals() -> Stream(Int) {
   Stream(head: fn() { 0 }, tail: fn() { map(naturals(), fn(x) { x + 1 }) })
@@ -63,9 +64,11 @@ pub fn naturals() -> Stream(Int) {
 
 pub fn main() -> Nil {
   naturals()
+  |> filter(int.is_event)
+  |> map(int.to_string)
   |> take(5)
   |> echo
-  // -> [0, 1, 2, 3, 4]
+  // -> ["0", "2", "4", "6", "8"]
   Nil
 }
 ```

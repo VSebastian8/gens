@@ -53,3 +53,38 @@ pub fn take(stream: Stream(a), n: Int) -> List(a) {
 pub fn map(stream: Stream(a), f: fn(a) -> b) -> Stream(b) {
   Stream(head: fn() { f(stream.head()) }, tail: fn() { map(stream.tail(), f) })
 }
+
+/// Lazy function for getting the filtered stream's head
+fn loop_head(stream: Stream(a), pred: fn(a) -> Bool) -> a {
+  let current = stream.head()
+  case pred(current) {
+    True -> current
+    False -> loop_head(stream.tail(), pred)
+  }
+}
+
+/// Lazy function for getting the filtered stream's tail
+fn loop_tail(stream: Stream(a), pred: fn(a) -> Bool) -> Stream(a) {
+  let current = stream.head()
+  case pred(current) {
+    True -> filter(stream.tail(), pred)
+    False -> loop_tail(stream.tail(), pred)
+  }
+}
+
+/// **Filters** elements from the stream
+/// ```gleam
+/// pub fn naturals() -> Stream(Int) {
+///   Stream(head: fn() { 0 }, tail: fn() { map(naturals(), fn(x) { x + 1 }) })
+/// }
+/// ```
+/// ```gleam
+/// filter(naturals(), fn(x) { x % 3 == 0 })
+/// |> take(5)
+/// // -> [0, 3, 6, 9, 12]
+/// ```
+pub fn filter(stream: Stream(a), pred: fn(a) -> Bool) -> Stream(a) {
+  Stream(head: fn() { loop_head(stream, pred) }, tail: fn() {
+    loop_tail(stream, pred)
+  })
+}

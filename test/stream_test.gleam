@@ -1,4 +1,4 @@
-import gens/stream.{type Stream, Stream, map, take}
+import gens/stream.{type Stream, Stream, filter, map, take}
 import gleam/int
 import gleeunit/should
 
@@ -36,4 +36,10 @@ pub fn map_test() {
 
 pub fn naturals() -> Stream(Int) {
   Stream(head: fn() { 0 }, tail: fn() { map(naturals(), fn(x) { x + 1 }) })
+}
+
+pub fn filter_test() {
+  filter(naturals(), fn(x) { x % 3 == 0 })
+  |> take(5)
+  |> should.equal([0, 3, 6, 9, 12])
 }
