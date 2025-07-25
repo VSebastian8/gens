@@ -1,5 +1,5 @@
 name = "gens"
-version = "2.1.0"
+version = "3.0.0"
 
 authors = ["VSebastian8"]
 description = "Gleam generators and infinite lazy lists!"

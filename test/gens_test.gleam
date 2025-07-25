@@ -1,10 +1,11 @@
 import gens.{
-  Generator, chain, combine, forever, from_lazy_list, from_list, gen, get,
-  infinite, list_repeat, merge, monad, while,
+  Generator, chain, combine, forever, from_lazy_list, from_list, from_stream,
+  gen, get, infinite, list_repeat, merge, monad, to_stream, while,
 }
-import gens/lazy.{drop, filter, map, new, take}
+import gens/lazy
+import gens/stream.{type Stream, Stream}
 import gleam/int
-import gleam/option
+import gleam/option.{None, Some}
 import gleam/pair
 import gleeunit
 import gleeunit/should
@@ -14,16 +15,16 @@ pub fn main() -> Nil {
 }
 
 pub fn get_test() {
-  let counter = Generator(state: 0, next: fn(c) { option.Some(#(c, c + 1)) })
+  let counter = Generator(state: 0, next: fn(c) { Some(#(c, c + 1)) })
 
   case get(counter).0 {
-    option.None -> Nil
-    option.Some(x) -> should.equal(x, 0)
+    None -> Nil
+    Some(x) -> should.equal(x, 0)
   }
 }
 
 pub fn gen_test() {
-  let counter = Generator(state: 0, next: fn(c) { option.Some(#(c, c + 1)) })
+  let counter = Generator(state: 0, next: fn(c) { Some(#(c, c + 1)) })
 
   let #(nums, counter2) = gen(counter, 5)
   nums |> should.equal([0, 1, 2, 3, 4])
@@ -31,9 +32,8 @@ pub fn gen_test() {
 }
 
 pub fn combine_test() {
-  let two_powers = Generator(state: 1, next: fn(p) { option.Some(#(p, p * 2)) })
-  let bellow_three =
-    Generator(state: 0, next: fn(n) { option.Some(#(n < 3, n + 1)) })
+  let two_powers = Generator(state: 1, next: fn(p) { Some(#(p, p * 2)) })
+  let bellow_three = Generator(state: 0, next: fn(n) { Some(#(n < 3, n + 1)) })
 
   let z = combine(two_powers, bellow_three)
   let #(res, _) = gen(z, 5)
@@ -49,13 +49,13 @@ pub fn combine_test() {
 pub fn from_list_test() {
   let gen_fruit = from_list(["apple", "banana", "orange"])
   let #(fruit1, gen_fruit2) = get(gen_fruit)
-  should.equal(fruit1, option.Some("apple"))
+  should.equal(fruit1, Some("apple"))
   let #(fruit2, gen_fruit3) = get(gen_fruit2)
-  should.equal(fruit2, option.Some("banana"))
+  should.equal(fruit2, Some("banana"))
   let #(fruit3, gen_fruit4) = get(gen_fruit3)
-  should.equal(fruit3, option.Some("orange"))
+  should.equal(fruit3, Some("orange"))
   let #(fruit4, _) = get(gen_fruit4)
-  should.equal(fruit4, option.None)
+  should.equal(fruit4, None)
 }
 
 pub fn list_repeat_test() {
@@ -65,7 +65,7 @@ pub fn list_repeat_test() {
 }
 
 pub fn from_lazy_list_test() {
-  let infinite_list = new() |> drop(3) |> map(fn(x) { x * 10 })
+  let infinite_list = lazy.new() |> lazy.drop(3) |> lazy.map(fn(x) { x * 10 })
   let ten_gen = from_lazy_list(infinite_list)
   let #(res, _) = gen(ten_gen, 10)
   res
@@ -78,8 +78,8 @@ fn fst(t: #(a, b)) {
 }
 
 pub fn merge_test() {
-  let counter1 = Generator(0, fn(c) { option.Some(#(c, c + 1)) })
-  let counter2 = Generator(0, fn(c) { option.Some(#(c, c + 2)) })
+  let counter1 = Generator(0, fn(c) { Some(#(c, c + 1)) })
+  let counter2 = Generator(0, fn(c) { Some(#(c, c + 2)) })
   let merged = merge(counter1, counter2, int.compare)
   merged |> gen(8) |> fst |> should.equal([0, 0, 1, 2, 2, 3, 4, 4])
 }
@@ -88,8 +88,8 @@ pub fn while_test() {
   let gen_ten =
     Generator(5, fn(x) {
       case x < 10 {
-        True -> option.Some(#(x, x + 2))
-        False -> option.None
+        True -> Some(#(x, x + 2))
+        False -> None
       }
     })
   while(gen_ten)
@@ -101,24 +101,25 @@ pub fn while_test() {
 }
 
 pub fn forever_test() {
-  let gen_nat = Generator(1, fn(c) { option.Some(#(c, c + 1)) })
+  let gen_nat = Generator(0, fn(c) { Some(#(c, c + 1)) })
   let lazy_nat = forever(gen_nat)
-  take(lazy_nat, 5)
-  |> should.equal([1, 2, 3, 4, 5])
+  lazy.take(lazy_nat, 5)
+  |> should.equal([Some(0), Some(1), Some(2), Some(3), Some(4)])
   // This function is the inverse of `from_lazy_list`
   let lazy_odds =
-    new()
-    |> filter(int.is_odd)
-    |> map(int.to_string)
+    lazy.new()
+    |> lazy.filter(int.is_odd)
+    |> lazy.map(int.to_string)
   let gen_odds = from_lazy_list(lazy_odds)
-  let lazy_odds_2 = forever(gen_odds)
+  let lazy_odds_2 =
+    forever(gen_odds) |> lazy.map(option.lazy_unwrap(_, fn() { panic }))
 
-  take(lazy_odds, 5)
+  lazy.take(lazy_odds, 5)
   |> should.equal(["1", "3", "5", "7", "9"])
   gen(gen_odds, 5)
   |> pair.first
   |> should.equal(["1", "3", "5", "7", "9"])
-  take(lazy_odds_2, 5)
+  lazy.take(lazy_odds_2, 5)
   |> should.equal(["1", "3", "5", "7", "9"])
 }
 
@@ -132,8 +133,8 @@ pub fn chain_test() {
   let gen_three =
     Generator(1, fn(x) {
       case x <= 3 {
-        True -> option.Some(#(x, x + 1))
-        False -> option.None
+        True -> Some(#(x, x + 1))
+        False -> None
       }
     })
   let gen_nat = infinite(1, fn(x) { #(x, x + 1) })
@@ -166,15 +167,15 @@ pub fn wallet_test() {
   let big_stock =
     Generator(Money(5), fn(w) {
       case w {
-        Money(x) -> option.Some(#(x, Money(x * 2)))
-        _ -> option.None
+        Money(x) -> Some(#(x, Money(x * 2)))
+        _ -> None
       }
     })
   let small_stock =
     Generator(Empty, fn(w) {
       case w {
-        Money(x) -> option.Some(#(x + 2, Money(x - 6)))
-        _ -> option.None
+        Money(x) -> Some(#(x + 2, Money(x - 6)))
+        _ -> None
       }
     })
   let limit =
@@ -182,10 +183,10 @@ pub fn wallet_test() {
       case w {
         Money(x) ->
           case x < 0 || x > 15 {
-            False -> option.Some(#(x, w))
-            True -> option.None
+            False -> Some(#(x, w))
+            True -> None
           }
-        _ -> option.None
+        _ -> None
       }
     })
   let wallet = {
@@ -195,4 +196,55 @@ pub fn wallet_test() {
     int.to_string(x) <> " -> " <> int.to_string(y)
   }
   wallet |> while |> should.equal(["5 -> 12", "4 -> 10"])
+}
+
+pub fn dummy() -> Stream(Nil) {
+  Stream(head: fn() { Nil }, tail: dummy)
+}
+
+pub fn stream_generator_test() {
+  // Fibonacci Stream
+  let fibo_s =
+    dummy()
+    |> stream.scan(#(1, 1), fn(_, int_pair) {
+      case int_pair {
+        #(x, y) -> #(y, x + y)
+      }
+    })
+    |> stream.map(fn(int_pair) { int_pair.1 })
+
+  fibo_s
+  |> stream.take(5)
+  |> should.equal([1, 2, 3, 5, 8])
+
+  // Fibonacci Generator
+  let fibo_g = from_stream(fibo_s)
+
+  fibo_g
+  |> gen(5)
+  |> pair.first
+  |> should.equal([1, 2, 3, 5, 8])
+}
+
+pub fn generator_stream_test() {
+  // Fibonacci Generator
+  let fibo_g =
+    Generator(state: #(1, 1), next: fn(int_pair) {
+      case int_pair {
+        #(x, y) -> Some(#(y, #(y, x + y)))
+      }
+    })
+
+  fibo_g
+  |> gen(5)
+  |> pair.first
+  |> should.equal([1, 2, 3, 5, 8])
+
+  // Fibonacci Stream
+  let fibo_s = to_stream(fibo_g)
+
+  fibo_s
+  |> stream.map(option.unwrap(_, -1))
+  |> stream.take(5)
+  |> should.equal([1, 2, 3, 5, 8])
 }

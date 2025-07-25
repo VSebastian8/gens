@@ -1,8 +1,10 @@
+import gens/lazy
 import gens/stream.{
-  type Stream, Stream, drop, filter, fold, list_zip, map, merge, scan, take,
-  while, zip,
+  type Stream, Stream, drop, filter, flatten, fold, from_lazy_list, list_zip,
+  map, merge, scan, take, while, zip,
 }
 import gleam/int
+import gleam/list
 import gleeunit/should
 
 pub fn ones() -> Stream(Int) {
@@ -91,9 +93,33 @@ pub fn merge_test() {
 }
 
 pub fn fold_test() {
+  let stream_or = fn(s: Stream(Bool)) -> Bool {
+    fold(s, fn(x, next) { x || next() })
+  }
   // If at least one element is True, then the fold ends
   // If all elements in the Stream are False, the fold runs infinitely
-  let stream_or =
-    fold(naturals() |> map(fn(x) { x == 10 }), fn(x, next) { x || next() })
-    |> should.equal(True)
+  stream_or(naturals() |> map(fn(x) { x == 10 }))
+  |> should.equal(True)
+}
+
+pub fn flatten_test() {
+  let repeat_stream = naturals() |> map(fn(x) { list.repeat(x, x) })
+  repeat_stream
+  |> take(5)
+  |> should.equal([[], [1], [2, 2], [3, 3, 3], [4, 4, 4, 4]])
+  repeat_stream
+  |> flatten()
+  |> take(10)
+  |> should.equal([1, 2, 2, 3, 3, 3, 4, 4, 4, 4])
+}
+
+pub fn lazy_test() {
+  let lazy_odds =
+    lazy.new()
+    |> lazy.filter(int.is_odd)
+    |> lazy.map(int.to_string)
+  let stream_odds = from_lazy_list(lazy_odds)
+  stream_odds
+  |> take(5)
+  |> should.equal(["1", "3", "5", "7", "9"])
 }

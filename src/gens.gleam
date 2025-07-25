@@ -1,12 +1,12 @@
 ////================== Generator ==================
 
 import cat/monad.{type Monad, Monad}
-import gens/lazy.{type LazyList, drop, filter, map, new, take}
+import gens/lazy.{type LazyList}
+import gens/stream.{type Stream, Stream}
 import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/order.{type Order}
 import gleam/pair
-import gleam/result
 
 pub type Generator(a, s) {
   Generator(state: s, next: fn(s) -> Option(#(a, s)))
@@ -121,23 +121,22 @@ pub fn from_list(l: List(a)) -> Generator(a, List(a)) {
 /// echo fruits
 /// // -> ["apple", "banana", "orange", "apple", "banana"]
 /// ```
-pub fn list_repeat(l: List(a)) -> Generator(a, #(List(a), List(a))) {
-  Generator(state: #(l, l), next: fn(list_pair) {
-    let #(current, original) = list_pair
-    case current {
+pub fn list_repeat(l: List(a)) -> Generator(a, List(a)) {
+  Generator(state: l, next: fn(ls) {
+    case ls {
       [] -> None
       [x, ..rest] ->
         case rest {
-          [] -> Some(#(x, #(original, original)))
-          _ -> Some(#(x, #(rest, original)))
+          [] -> Some(#(x, l))
+          _ -> Some(#(x, rest))
         }
     }
   })
 }
 
-/// Generates elements from the lazy list
+/// Conversion from **LazyList** to **Generator** 
 /// ```gleam
-/// let infinite_list = new() |> drop(3) |> map(fn(x) { x * 10 })
+/// let infinite_list = lazy.new() |> lazy.drop(3) |> lazy.map(fn(x) { x * 10 })
 /// let ten_gen = from_lazy_list(infinite_list)
 /// let #(res, _) = gen(ten_gen, 10)
 /// echo res
@@ -145,9 +144,9 @@ pub fn list_repeat(l: List(a)) -> Generator(a, #(List(a), List(a))) {
 /// ```
 pub fn from_lazy_list(l: LazyList(a)) -> Generator(a, LazyList(a)) {
   Generator(state: l, next: fn(ls) {
-    case take(ls, 1) {
+    case lazy.take(ls, 1) {
       [] -> None
-      [x, ..] -> Some(#(x, ls |> drop(1)))
+      [x, ..] -> Some(#(x, ls |> lazy.drop(1)))
     }
   })
 }
@@ -178,43 +177,44 @@ pub fn while(g: Generator(a, s)) -> List(a) {
   }
 }
 
-/// Generates a lazy list from a generator with no end condition. \
+/// Conversion from **Generator** to **LazyList** \
 /// Since each element in the lazy list needs to be generated separately, this function can be very slow!!! (O(n^2))
 /// ```gleam
 /// let gen_nat = Generator(1, fn(c) { Some(#(c, c + 1)) })
 /// let lazy_nat = forever(gen_nat)
-/// echo take(lazy_nat, 5)
-/// // -> [1, 2, 3, 4, 5]
+/// echo lazy.take(lazy_nat, 5)
+/// // -> [Some(1), Some(2), Some(3), Some(4), Some(5)]
 /// ```
 /// This function is the inverse of `from_lazy_list`
 /// ```gleam
 /// let lazy_odds =
-///   new()
-///   |> filter(int.is_odd)
-///   |> map(int.to_string)
+///   lazy.new()
+///   |> lazy.filter(int.is_odd)
+///   |> lazy.map(int.to_string)
 /// let gen_odds = from_lazy_list(lazy_odds)
-/// let lazy_odds_2 = forever(gen_odds)
+/// let lazy_odds_2 = forever(gen_odds) |> lazy.map(option.lazy_unwrap(_, fn() { panic }))
 /// 
-/// echo take(lazy_odds, 5)
+/// echo lazy.take(lazy_odds, 5)
 /// // -> ["1", "3", "5", "7", "9"]
 /// echo gen(gen_odds, 5) |> pair.first
 /// // -> ["1", "3", "5", "7", "9"]
-/// echo take(lazy_odds_2, 5)
+/// echo lazy.take(lazy_odds_2, 5)
 /// // -> ["1", "3", "5", "7", "9"]
 /// ```
-pub fn forever(g: Generator(a, s)) -> LazyList(a) {
-  new()
-  |> map(fn(n) { gen(g, n) |> pair.first |> list.last })
-  |> filter(result.is_ok)
-  |> map(fn(res) {
+pub fn forever(g: Generator(a, s)) -> LazyList(Option(a)) {
+  lazy.new()
+  |> lazy.map(fn(n) {
+    gen(g, n + 1) |> pair.first |> list.drop(n - 1) |> list.last
+  })
+  |> lazy.map(fn(res) {
     case res {
-      Ok(x) -> x
-      Error(_) -> panic
+      Ok(x) -> Some(x)
+      Error(_) -> None
     }
   })
 }
 
-/// Creates a generator with no end condition.
+/// Creates a generator with `no end condition`
 /// ```gleam
 /// let gen_nat = infinite(1, fn(x) { #(x, x + 1) })
 /// echo gen(gen_nat, 5).0
@@ -224,7 +224,7 @@ pub fn infinite(state: s, next: fn(s) -> #(a, s)) -> Generator(a, s) {
   Generator(state, fn(x) { Some(next(x)) })
 }
 
-/// Merges two `sorted` generators into one
+/// **Merges** two `sorted` generators into one
 /// ```gleam
 /// let counter1 = Generator(0, fn(c) { Some(#(c, c + 1)) })
 /// let counter2 = Generator(0, fn(c) { Some(#(c, c + 2)) })
@@ -292,7 +292,7 @@ fn chain_tail_rec(
   }
 }
 
-/// `Chains` a list of generators
+/// **Chains** a list of generators
 /// ```gleam
 /// let gen_three =
 ///   Generator(1, fn(x) {
@@ -354,6 +354,84 @@ pub fn monad() -> Monad(GeneratorM(s), a, b, Generator(a, s), Generator(b, s)) {
           Some(#(x, new_state)) -> f(x).next(new_state)
         }
       })
+    },
+  )
+}
+
+/// Conversion from **Stream** to **Generator** \
+/// Helper Stream
+/// ```gleam
+/// pub fn dummy() -> Stream(Nil) {
+///   Stream(head: fn() { Nil }, tail: dummy)
+/// }
+/// ```
+/// Fibonacci Stream
+/// ```gleam
+/// let fibo_s =
+///   dummy()
+///   |> stream.scan(#(1, 1), fn(_, int_pair) {
+///     case int_pair {
+///       #(x, y) -> #(y, x + y)
+///     }
+///   })
+///   |> stream.map(fn(int_pair) { int_pair.1 })
+/// 
+/// fibo_s
+/// |> stream.take(5)
+/// |> echo
+/// // -> [1, 2, 3, 5, 8]
+/// ```
+/// Fibonacci Generator
+/// ```gleam
+/// let fibo_g = from_stream(fibo_s)
+/// 
+/// fibo_g
+/// |> gen(5)
+/// |> pair.first
+/// |> echo
+/// // -> [1, 2, 3, 5, 8]
+/// ```
+pub fn from_stream(stream: Stream(a)) -> Generator(a, Stream(a)) {
+  Generator(state: stream, next: fn(s) { Some(#(s.head(), s.tail())) })
+}
+
+/// Conversion from **Generator** to **Stream** \
+/// Fibonacci Generator
+/// ```gleam
+/// let fibo_g =
+///   Generator(state: #(1, 1), next: fn(int_pair) {
+///     case int_pair {
+///       #(x, y) -> Some(#(y, #(y, x + y)))
+///     }
+///   })
+///
+/// fibo_g
+/// |> gen(5)
+/// |> pair.first
+/// |> echo
+/// // -> [1, 2, 3, 5, 8]
+/// ```
+/// Fibonacci Stream
+/// ```gleam
+/// let fibo_s = to_stream(fibo_g)
+///
+/// fibo_s
+/// |> stream.map(option.unwrap(_, -1))
+/// |> stream.take(5)
+/// |> echo
+/// // -> [1, 2, 3, 5, 8]
+/// ```
+pub fn to_stream(generator: Generator(a, s)) -> Stream(Option(a)) {
+  Stream(
+    head: fn() {
+      case get(generator) {
+        #(x, _) -> x
+      }
+    },
+    tail: fn() {
+      case get(generator) {
+        #(_, next_gen) -> to_stream(next_gen)
+      }
     },
   )
 }

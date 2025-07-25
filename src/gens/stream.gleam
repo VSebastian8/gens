@@ -1,5 +1,6 @@
 ////================== Stream ==================
 
+import gens/lazy.{type LazyList}
 import gleam/list
 import gleam/order.{type Order, Gt}
 
@@ -193,12 +194,73 @@ pub fn merge(
 
 /// **Folds** the Stream into a single value using an accumulator
 /// ```gleam
+/// let stream_or = fn(s: Stream(Bool)) -> Bool {
+///   fold(s, fn(x, next) { x || next() })
+/// }
 /// // If at least one element is True, then the fold ends
 /// // If all elements in the Stream are False, the fold runs infinitely
-/// let stream_or =
-///   fold(naturals() |> map(fn(x) { x == 10 }), fn(x, next) { x || next() })
-///   // -> True
+/// stream_or(naturals() |> map(fn(x) { x == 10 }))
+/// // -> True
 /// ```
 pub fn fold(stream: Stream(a), f: fn(a, fn() -> b) -> b) -> b {
   f(stream.head(), fn() { fold(stream.tail(), f) })
+}
+
+/// Lazy function for getting the flattened stream's head
+fn loop_flatten_head(stream: Stream(List(a))) -> a {
+  case stream.head() {
+    [x, ..] -> x
+    [] -> loop_flatten_head(stream.tail())
+  }
+}
+
+/// Lazy function for getting the flattened stream's tail
+fn loop_flatten_tail(stream: Stream(List(a))) -> Stream(a) {
+  case stream.head() {
+    [_, ..xs] -> {
+      let new_stream = Stream(head: fn() { xs }, tail: stream.tail)
+      flatten(new_stream)
+    }
+    [] -> loop_flatten_tail(stream.tail())
+  }
+}
+
+/// **Flatten** a Stream of Lists
+/// ```gleam
+/// let repeat_stream = naturals() |> map(fn(x) { list.repeat(x, x) })
+/// repeat_stream
+/// |> take(5)
+/// // -> [[], [1], [2, 2], [3, 3, 3], [4, 4, 4, 4]]
+/// repeat_stream
+/// |> flatten()
+/// |> take(10)
+/// // -> [1, 2, 2, 3, 3, 3, 4, 4, 4, 4]
+/// ``` 
+pub fn flatten(stream: Stream(List(a))) -> Stream(a) {
+  Stream(head: fn() { loop_flatten_head(stream) }, tail: fn() {
+    loop_flatten_tail(stream)
+  })
+}
+
+/// Conversion from **LazyList** to **Stream**
+/// ```gleam
+/// let lazy_odds =
+///   lazy.new()
+///   |> lazy.filter(int.is_odd)
+///   |> lazy.map(int.to_string)
+/// let stream_odds = from_lazy_list(lazy_odds)
+/// stream_odds
+/// |> take(5)
+/// // -> ["1", "3", "5", "7", "9"]
+/// ```
+pub fn from_lazy_list(lz: LazyList(a)) -> Stream(a) {
+  Stream(
+    head: fn() {
+      case lazy.take(lz, 1) {
+        [] -> panic
+        [x, ..] -> x
+      }
+    },
+    tail: fn() { from_lazy_list(lazy.drop(lz, 1)) },
+  )
 }
