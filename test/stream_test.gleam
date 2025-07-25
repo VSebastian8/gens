@@ -1,4 +1,4 @@
-import gens/stream.{type Stream, Stream, filter, map, take}
+import gens/stream.{type Stream, Stream, drop, filter, list_zip, map, take, zip}
 import gleam/int
 import gleeunit/should
 
@@ -42,4 +42,24 @@ pub fn filter_test() {
   filter(naturals(), fn(x) { x % 3 == 0 })
   |> take(5)
   |> should.equal([0, 3, 6, 9, 12])
+}
+
+pub fn powers() -> Stream(Int) {
+  Stream(head: fn() { 1 }, tail: fn() { map(powers(), fn(x) { x * 2 }) })
+}
+
+pub fn drop_test() {
+  powers()
+  |> drop(3)
+  |> take(5)
+  |> should.equal([8, 16, 32, 64, 128])
+}
+
+pub fn zip_test() {
+  zip(naturals(), drop(naturals(), 5))
+  |> take(3)
+  |> should.equal([#(0, 5), #(1, 6), #(2, 7)])
+
+  list_zip(["a", "b", "c"], naturals())
+  |> should.equal([#("a", 0), #("b", 1), #("c", 2)])
 }

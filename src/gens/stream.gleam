@@ -14,7 +14,7 @@ fn take_acc(stream: Stream(a), n: Int, acc: List(a)) -> List(a) {
   }
 }
 
-/// **Takes** a `finite` number of elements from a Stream
+/// **Takes** a `finite` number of elements from the Stream
 /// ```gleam
 /// pub fn ones() -> Stream(Int) {
 ///   Stream(head: fn() { 1 }, tail: ones)
@@ -72,7 +72,7 @@ fn loop_tail(stream: Stream(a), pred: fn(a) -> Bool) -> Stream(a) {
   }
 }
 
-/// **Filters** elements from the stream
+/// **Filters** elements from the Stream
 /// ```gleam
 /// pub fn naturals() -> Stream(Int) {
 ///   Stream(head: fn() { 0 }, tail: fn() { map(naturals(), fn(x) { x + 1 }) })
@@ -87,4 +87,47 @@ pub fn filter(stream: Stream(a), pred: fn(a) -> Bool) -> Stream(a) {
   Stream(head: fn() { loop_head(stream, pred) }, tail: fn() {
     loop_tail(stream, pred)
   })
+}
+
+/// **Drops** the first n elements from the Stream
+/// ```gleam
+/// pub fn powers() -> Stream(Int) {
+///   Stream(head: fn() { 1 }, tail: fn() { map(powers(), fn(x) { x * 2 }) })
+/// }
+/// ```
+/// ```gleam
+/// powers() // 1, 2, 4, 8, 16..
+/// |> drop(3)
+/// |> take(5)
+/// // -> [8, 16, 32, 64, 128]
+/// ```
+pub fn drop(stream: Stream(a), n: Int) -> Stream(a) {
+  case n > 0 {
+    True -> drop(stream.tail(), n - 1)
+    False -> stream
+  }
+}
+
+/// **Zips** two Streams togheter
+/// ```gleam
+/// zip(naturals(), drop(naturals(), 5))
+/// |> take(3)
+/// |> [#(0, 5), #(1, 6), #(2, 7)]
+/// ``` 
+pub fn zip(a_stream: Stream(a), b_stream: Stream(b)) -> Stream(#(a, b)) {
+  Stream(head: fn() { #(a_stream.head(), b_stream.head()) }, tail: fn() {
+    zip(a_stream.tail(), b_stream.tail())
+  })
+}
+
+/// **Zips** a list with a Stream
+/// ```gleam
+/// list_zip(["a", "b", "c"], naturals())
+/// // -> [#("a", 0), #("b", 1), #("c", 2)]
+/// ```
+pub fn list_zip(list: List(a), stream: Stream(b)) -> List(#(a, b)) {
+  case list {
+    [] -> []
+    [x, ..xs] -> [#(x, stream.head()), ..list_zip(xs, stream.tail())]
+  }
 }
