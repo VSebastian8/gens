@@ -1,7 +1,7 @@
 import gens/lazy
 import gens/stream.{
-  type Stream, Stream, drop, filter, flatten, fold, from_lazy_list, list_zip,
-  map, merge, scan, take, while, zip,
+  type Stream, Stream, distinct, drop, filter, flatten, fold, from_lazy_list,
+  list_zip, map, merge, scan, take, while, zip,
 }
 import gleam/int
 import gleam/list
@@ -122,4 +122,20 @@ pub fn lazy_test() {
   stream_odds
   |> take(5)
   |> should.equal(["1", "3", "5", "7", "9"])
+}
+
+pub fn distinct_test() {
+  map(naturals(), fn(x) { x / 3 })
+  |> take(10)
+  |> should.equal([0, 0, 0, 1, 1, 1, 2, 2, 2, 3])
+  map(naturals(), fn(x) { x / 3 })
+  |> distinct()
+  |> take(5)
+  |> should.equal([0, 1, 2, 3, 4])
+  naturals()
+  |> map(fn(x) { [x, x + 3] })
+  |> flatten()
+  |> distinct()
+  |> take(10)
+  |> should.equal([0, 3, 1, 4, 2, 5, 6, 7, 8, 9])
 }

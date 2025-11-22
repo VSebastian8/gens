@@ -264,3 +264,27 @@ pub fn from_lazy_list(lz: LazyList(a)) -> Stream(a) {
     tail: fn() { from_lazy_list(lazy.drop(lz, 1)) },
   )
 }
+
+/// Filters out **duplicate** elements of a Stream
+/// ```gleam
+/// map(naturals(), fn(x) { x / 3 })
+/// |> take(10)
+/// // -> [0, 0, 0, 1, 1, 1, 2, 2, 2, 3]
+/// map(naturals(), fn(x) { x / 3 })
+/// |> distinct()
+/// |> take(5)
+/// // -> [0, 1, 2, 3, 4]
+/// ```
+/// ```gleam
+/// naturals()
+/// |> map(fn(x) { [x, x + 3] })
+/// |> flatten()
+/// |> distinct()
+/// |> take(10)
+/// // -> [0, 3, 1, 4, 2, 5, 6, 7, 8, 9]
+/// ```
+pub fn distinct(stream: Stream(a)) -> Stream(a) {
+  Stream(head: stream.head, tail: fn() {
+    filter(distinct(stream.tail()), fn(x) { x != stream.head() })
+  })
+}
