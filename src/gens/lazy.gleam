@@ -49,8 +49,8 @@ fn take_acc(
 /// take(new(), 5)
 /// // -> [0, 1, 2, 3, 4]
 /// ```
-pub fn take(ga: LazyList(a), n: Int) -> List(a) {
-  case ga {
+pub fn take(la: LazyList(a), n: Int) -> List(a) {
+  case la {
     LazyList(index, amap, afilt) -> take_acc(index, 0, n, amap, afilt, [])
   }
 }
@@ -63,8 +63,8 @@ pub fn take(ga: LazyList(a), n: Int) -> List(a) {
 /// |> take(5)
 /// // -> ["3", "4", "5", "6", "7"]
 /// ```
-pub fn map(ga: LazyList(a), f: fn(a) -> b) -> LazyList(b) {
-  case ga {
+pub fn map(la: LazyList(a), f: fn(a) -> b) -> LazyList(b) {
+  case la {
     LazyList(index, amap, afilt) -> LazyList(index, fn(n) { f(amap(n)) }, afilt)
   }
 }
@@ -77,8 +77,8 @@ pub fn map(ga: LazyList(a), f: fn(a) -> b) -> LazyList(b) {
 /// |> take(5)
 /// // -> [0, 2, 6, 8, 10]
 /// ```
-pub fn filter(ga: LazyList(a), f: fn(a) -> Bool) -> LazyList(a) {
-  case ga {
+pub fn filter(la: LazyList(a), f: fn(a) -> Bool) -> LazyList(a) {
+  case la {
     LazyList(index, amap, afilt) ->
       LazyList(index, amap, fn(n) { afilt(n) && f(amap(n)) })
   }
@@ -111,11 +111,11 @@ fn advance(index: Int, steps: Int, filt: fn(Int) -> Bool) -> Int {
 /// |> take(5)
 /// // -> [8, 10, 12, 14, 16]
 /// ```
-pub fn drop(ga: LazyList(a), steps: Int) -> LazyList(a) {
+pub fn drop(la: LazyList(a), steps: Int) -> LazyList(a) {
   case steps >= 0 {
-    False -> ga
+    False -> la
     True ->
-      case ga {
+      case la {
         LazyList(index, amap, afilt) ->
           LazyList(advance(index, steps, afilt), amap, afilt)
       }
@@ -133,9 +133,9 @@ pub fn drop(ga: LazyList(a), steps: Int) -> LazyList(a) {
 /// |> take(3)
 /// // -> [#(2, 0), #(4, 2), #(6, 4)]
 /// ```
-pub fn zip(ga: LazyList(a), gb: LazyList(b)) -> LazyList(#(a, b)) {
-  let LazyList(aindex, amap, afilt) = ga
-  let LazyList(bindex, bmap, bfilt) = gb
+pub fn zip(la: LazyList(a), lb: LazyList(b)) -> LazyList(#(a, b)) {
+  let LazyList(aindex, amap, afilt) = la
+  let LazyList(bindex, bmap, bfilt) = lb
   LazyList(int.max(aindex, bindex), fn(n) { #(amap(n), bmap(n)) }, fn(n) {
     afilt(n) && bfilt(n)
   })
@@ -147,8 +147,8 @@ pub fn zip(ga: LazyList(a), gb: LazyList(b)) -> LazyList(#(a, b)) {
 /// |> list_zip(new())
 /// // -> [#("a", 0), #("b", 1), #("c", 2)]
 /// ```
-pub fn list_zip(la: List(a), gb: LazyList(b)) -> List(#(a, b)) {
-  list.zip(la, take(gb, list.length(la)))
+pub fn list_zip(la: List(a), lb: LazyList(b)) -> List(#(a, b)) {
+  list.zip(la, take(lb, list.length(la)))
 }
 
 /// Phantom type for LazyList cat instances
@@ -186,4 +186,67 @@ pub fn alternative() -> Alternative(LazyListF, LazyList(a)) {
       )
     },
   )
+}
+
+// Get element at index n from the flattened lazy list
+fn get_nth(la: LazyList(List(a)), n: Int) -> a {
+  case take(la, 1) {
+    [x] -> {
+      case list.length(x) > n {
+        True -> {
+          case x |> list.drop(n) |> list.first {
+            Ok(y) -> y
+            Error(_) -> panic
+          }
+        }
+        False -> get_nth(drop(la, 1), n - list.length(x))
+      }
+    }
+    _ -> panic as "Take should return exactly 1 element"
+  }
+}
+
+/// **Flatten** a LazyList of Lists
+/// ```gleam
+/// new()
+/// |> drop(2)
+/// |> map(fn(n) { list.repeat(n, n) })
+/// |> flatten()
+/// |> take(10)
+/// // -> [2, 2, 3, 3, 3, 4, 4, 4, 4, 5]
+/// ```
+pub fn flatten(la: LazyList(List(a))) -> LazyList(a) {
+  new() |> map(fn(n) { get_nth(la, n) })
+}
+
+/// Filters out **duplicate** elements of a LazyList
+/// ```gleam
+/// new()
+/// |> map(fn(x) { x / 3 })
+/// |> take(10)
+/// // -> [0, 0, 0, 1, 1, 1, 2, 2, 2, 3]
+/// new()
+/// |> map(fn(x) { x / 3 })
+/// |> distinct()
+/// |> take(5)
+/// // -> [0, 1, 2, 3, 4]
+/// ```
+/// ```gleam
+/// new()
+/// |> map(fn(x) { [x, x + 3] })
+/// |> flatten()
+/// |> distinct()
+/// |> take(10)
+/// // -> [0, 3, 1, 4, 2, 5, 6, 7, 8, 9]
+/// ```
+pub fn distinct(la: LazyList(a)) -> LazyList(a) {
+  LazyList(index: la.index, map: la.map, filter: fn(n) {
+    la.filter(n)
+    && !{
+      list.range(n, la.index)
+      |> list.drop(1)
+      |> list.map(la.map)
+      |> list.contains(la.map(n))
+    }
+  })
 }

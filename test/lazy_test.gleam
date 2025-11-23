@@ -1,11 +1,8 @@
-import gens/lazy.{alternative, drop, filter, list_zip, map, new, take, zip}
-import gleam/int
-import gleeunit
-import gleeunit/should
-
-pub fn main() -> Nil {
-  gleeunit.main()
+import gens/lazy.{
+  alternative, distinct, drop, filter, flatten, list_zip, map, new, take, zip,
 }
+import gleam/int
+import gleam/list
 
 pub fn take_test() {
   assert take(new(), 0) == []
@@ -74,9 +71,36 @@ pub fn lazy_alternative_test() {
     |> map(fn(x) { int.to_string(x) <> " kiwis" })
   // Combining the two lists
   let fruits = alternative().or(odd_pears, triple_kiwis)
-  take(fruits, 8)
-  |> should.equal([
-    "3 pears", "5 pears", "6 kiwis", "7 pears", "9 pears", "11 pears",
-    "12 kiwis", "13 pears",
-  ])
+  assert take(fruits, 8)
+    == [
+      "3 pears", "5 pears", "6 kiwis", "7 pears", "9 pears", "11 pears",
+      "12 kiwis", "13 pears",
+    ]
+}
+
+pub fn flatten_test() {
+  assert new()
+    |> drop(2)
+    |> map(fn(n) { list.repeat(n, n) })
+    |> flatten()
+    |> take(10)
+    == [2, 2, 3, 3, 3, 4, 4, 4, 4, 5]
+}
+
+pub fn distinct_test() {
+  assert new()
+    |> map(fn(x) { x / 3 })
+    |> take(10)
+    == [0, 0, 0, 1, 1, 1, 2, 2, 2, 3]
+  assert new()
+    |> map(fn(x) { x / 3 })
+    |> distinct()
+    |> take(5)
+    == [0, 1, 2, 3, 4]
+  assert new()
+    |> map(fn(x) { [x, x + 3] })
+    |> flatten()
+    |> distinct()
+    |> take(10)
+    == [0, 3, 1, 4, 2, 5, 6, 7, 8, 9]
 }

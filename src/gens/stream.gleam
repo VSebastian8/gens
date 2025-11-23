@@ -265,6 +265,22 @@ pub fn from_lazy_list(lz: LazyList(a)) -> Stream(a) {
   )
 }
 
+/// Conversion from **Stream** to **LazyList**
+/// ```gleam
+/// let stream_evens =
+///   naturals()
+///   |> filter(int.is_even)
+///   |> map(int.to_string)
+/// let lazy_evens = to_lazy_list(stream_evens)
+/// lazy_evens 
+/// |> lazy.take(5)
+/// // -> ["0", "2", "4", "6", "8"]
+/// ```
+pub fn to_lazy_list(s: Stream(a)) -> LazyList(a) {
+  lazy.new()
+  |> lazy.map(fn(n) { drop(s, n).head() })
+}
+
 /// Filters out **duplicate** elements of a Stream
 /// ```gleam
 /// map(naturals(), fn(x) { x / 3 })
