@@ -1,6 +1,6 @@
 import gens.{
-  Generator, chain, combine, forever, from_lazy_list, from_list, from_stream,
-  gen, get, infinite, list_repeat, merge, monad, to_stream, while,
+  Generator, chain, combine, distinct, forever, from_lazy_list, from_list,
+  from_stream, gen, get, infinite, list_repeat, merge, monad, to_stream, while,
 }
 import gens/lazy
 import gens/stream.{type Stream, Stream}
@@ -242,4 +242,11 @@ pub fn generator_stream_test() {
     |> stream.map(option.unwrap(_, -1))
     |> stream.take(5)
     == [1, 2, 3, 5, 8]
+}
+
+pub fn distinct_test() {
+  let duplicate_gen = from_list(["a", "b", "a", "a", "b", "c", "a", "c"])
+  assert duplicate_gen |> while() == ["a", "b", "a", "a", "b", "c", "a", "c"]
+  let distinct_gen = distinct(duplicate_gen)
+  assert distinct_gen |> while() == ["a", "b", "c"]
 }

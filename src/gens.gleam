@@ -435,3 +435,35 @@ pub fn to_stream(generator: Generator(a, s)) -> Stream(Option(a)) {
     },
   )
 }
+
+// Internal function for the distinct generator
+fn dist_next(
+  st: #(s, List(a)),
+  nxt: fn(s) -> Option(#(a, s)),
+) -> Option(#(a, #(s, List(a)))) {
+  case nxt(st.0) {
+    None -> None
+    Some(#(x, new_st)) -> {
+      case list.contains(st.1, x) {
+        False -> Some(#(x, #(new_st, [x, ..st.1])))
+        // skip duplicate elem
+        True -> dist_next(#(new_st, st.1), nxt)
+      }
+    }
+  }
+}
+
+/// Filters out **duplicate** generated elements
+/// ```gleam
+/// let duplicate_gen = from_list(["a", "b", "a", "a", "b", "c", "a", "c"])
+/// echo duplicate_gen |> while()
+/// // -> ["a", "b", "a", "a", "b", "c", "a", "c"]
+/// let distinct_gen = distinct(duplicate_gen)
+/// echo distinct_gen |> while()
+/// // -> ["a", "b", "c"]
+/// ```
+pub fn distinct(generator: Generator(a, s)) -> Generator(a, #(s, List(a))) {
+  Generator(state: #(generator.state, []), next: fn(st: #(s, List(a))) {
+    dist_next(st, generator.next)
+  })
+}
